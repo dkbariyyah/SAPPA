@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Analisis Pencapaian PLO Untuk Penasihat Akademik</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- SheetJS for Excel handling -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Mammoth for docx handling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- PDF.js for pdf handling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    </script>
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #881337; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #4c0519; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
+
+        const Icon = ({ name, className = "w-5 h-5" }) => {
+            const icons = {
+                upload: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />,
+                fileText: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />,
+                table: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />,
+                settings: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />,
+                download: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />,
+                plus: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />,
+                trash: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />,
+                check: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />,
+                alert: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />,
+                filter: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />,
+                copy: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />,
+                info: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            };
+            return (
+                <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {icons[name] || null}
+                </svg>
+            );
+        };
+
+        const DEFAULT_ASSESSMENT_MAP = {
+            'KUIZ': 'QUIZ PB',
+            'TRUC': 'STRUCTURED PA',
+            'TTR': 'TUTORIAL PB',
+            'THT': 'THEORY TEST PB',
+            'EOC': 'END OF COURSE PB',
+            'SBJ': 'SUBJEKTIF PB',
+            'UJIAN': 'THEORY TEST PB',
+            'PRW': 'PRACTICAL WORK PB',
+            'PRT': 'PRACTICAL TEST PB',
+            'LBK': 'LAB WORK PB',
+            'MNPRO': 'PROJECT MANAGEMENT PB',
+            'DSI': 'DESIGN/INSPECTION PB',
+            'PRCGSA': 'PRESENTATION PB',
+            'PRWGSA': 'GROUP WORK PB',
+            'PRE': 'PRESENTATION PB',
+            'CSE': 'CASE STUDY PB',
+            'SIMU': 'SIMULATION PB',
+            'MPR': 'MINI PROJECT PB',
+            'INREP': 'INDIVIDUAL REPORT PB',
+            'ESY': 'ESSAY PB',
+            'MPROR': 'MINI PROJECT PB',
+            'TJCR': 'TUNJUKCARA PB',
+            'TUG': 'TUGASAN PB'
+        };
+
+        const STANDARD_PLOS = [
+            'PLO001', 'PLO002', 'PLO003', 'PLO004', 'PLO005', 'PLO006',
+            'PLO007', 'PLO008', 'PLO009', 'PLO010', 'PLO011'
+        ];
+
+        function App() {
+            const [activeTab, setActiveTab] = useState('input');
+            const [rawRows, setRawRows] = useState([]);
+            const [pastedText, setPastedText] = useState('');
+            const [sessionName, setSessionName] = useState('');
+            const [selectedSessionFilter, setSelectedSessionFilter] = useState('ALL');
+            const [assessmentMap, setAssessmentMap] = useState(DEFAULT_ASSESSMENT_MAP);
+            const [newMapKey, setNewMapKey] = useState('');
+            const [newMapVal, setNewMapVal] = useState('');
+            const [isProcessing, setIsProcessing] = useState(false);
+            const [processingMsg, setProcessingMsg] = useState('');
+            const [viewMode, setViewMode] = useState('ALL'); // ALL, COURSE, CAUSE_SUMMARY
+            const [copied, setCopied] = useState(false);
+
+            const parseSpmpReportText = (text) => {
+                const results = [];
+                
+                const sessionMatch = text.match(/SESSION\s*:\s*([0-9:\/\s]+)/i);
+                const detectedSession = sessionMatch ? sessionMatch[1].replace(/\s+/g, '').trim() : sessionName;
+                if (sessionMatch && sessionMatch[1].trim()) {
+                    setSessionName(detectedSession);
+                }
+
+                let normalizedText = text
+                    .replace(/PLO0101/gi, 'PLO001')
+                    .replace(/PLO0102/gi, 'PLO002')
+                    .replace(/PLO0103/gi, 'PLO003')
+                    .replace(/PLO0104/gi, 'PLO004')
+                    .replace(/PLO0105/gi, 'PLO005')
+                    .replace(/PLO0106/gi, 'PLO006')
+                    .replace(/PLO0107/gi, 'PLO007')
+                    .replace(/PLO0108/gi, 'PLO008')
+                    .replace(/PLO0109/gi, 'PLO009')
+                    .replace(/PLO0110/gi, 'PLO010')
+                    .replace(/PLO0111/gi, 'PLO011');
+
+                const ploBlocks = normalizedText.split(/(PLO\d{3})/i);
+                let currentPlo = 'PLO001';
+
+                for (let i = 0; i < ploBlocks.length; i++) {
+                    const block = ploBlocks[i].trim();
+                    if (/^PLO\d{3}$/i.test(block)) {
+                        currentPlo = block.toUpperCase();
+                        continue;
+                    }
+                    if (!block) continue;
+
+                    const lineRegex = /(CLO\w+)?\s*([A-Z]{3,4}\s*\d{4,5}[A-Z]?)\s*(\d\s*:\s*\d{4}\/\d{4})?\s*([A-Z]{3,6}\d*)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/gi;
+
+                    let match;
+                    while ((match = lineRegex.exec(block)) !== null) {
+                        const courseCode = match[2].replace(/\s+/g, '').toUpperCase();
+                        const sessionVal = match[3] ? match[3].replace(/\s+/g, '').trim() : (detectedSession || '');
+                        const itemCode = match[4].toUpperCase();
+                        const markVal = parseFloat(match[5]);
+                        const overallVal = parseFloat(match[6]);
+
+                        if (overallVal > 0 && markVal <= overallVal) {
+                            const shortCode = itemCode.replace(/\d+/g, '').toUpperCase();
+                            const perc = (markVal / overallVal) * 100;
+
+                            results.push({
+                                course: courseCode,
+                                session: sessionVal,
+                                ori_assessmnet: itemCode,
+                                mark: markVal,
+                                overall: overallVal,
+                                percentage: perc,
+                                new__name: shortCode,
+                                PLO: currentPlo
+                            });
+                        }
+                    }
+                }
+
+                const uniqueResults = [];
+                const seen = new Set();
+                results.forEach((r) => {
+                    const key = `${r.course}_${r.session}_${r.PLO}_${r.ori_assessmnet}_${r.mark}_${r.overall}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueResults.push(r);
+                    }
+                });
+
+                return uniqueResults;
+            };
+
+            const availableSessions = useMemo(() => {
+                const set = new Set();
+                rawRows.forEach(r => {
+                    if (r.session) {
+                        const cleanSess = String(r.session).replace(/\s+/g, '');
+                        if (cleanSess) set.add(cleanSess);
+                    }
+                });
+                return Array.from(set).sort().reverse();
+            }, [rawRows]);
+
+            const allKnownPlos = useMemo(() => {
+                const set = new Set(STANDARD_PLOS);
+                rawRows.forEach(r => {
+                    if (r.PLO) set.add(r.PLO);
+                });
+                return Array.from(set).sort();
+            }, [rawRows]);
+
+            useEffect(() => {
+                if (availableSessions.length > 0) {
+                    setSelectedSessionFilter(availableSessions[0]);
+                    if (!sessionName) {
+                        setSessionName(availableSessions[0]);
+                    }
+                } else {
+                    setSelectedSessionFilter('ALL');
+                }
+            }, [availableSessions]);
+
+            const filteredRawRows = useMemo(() => {
+                if (selectedSessionFilter === 'ALL') return rawRows;
+                return rawRows.filter(r => {
+                    const cleanRowSess = String(r.session || '').replace(/\s+/g, '');
+                    const cleanFilterSess = String(selectedSessionFilter || '').replace(/\s+/g, '');
+                    return cleanRowSess === cleanFilterSess;
+                });
+            }, [rawRows, selectedSessionFilter]);
+
+            const coursePloData = useMemo(() => {
+                if (filteredRawRows.length === 0 && rawRows.length === 0) return [];
+
+                const groups = {};
+                filteredRawRows.forEach(row => {
+                    const mapName = assessmentMap[row.ori_assessmnet] || assessmentMap[row.new__name] || row.new__name || row.ori_assessmnet;
+                    const item = { ...row, assessmt_new: mapName };
+
+                    const key = `${row.PLO}_${row.course}`;
+                    if (!groups[key]) {
+                        groups[key] = {
+                            PLO: row.PLO,
+                            course: row.course,
+                            items: []
+                        };
+                    }
+                    groups[key].items.push(item);
+                });
+
+                const existingPloCourseKeys = new Set(Object.keys(groups));
+
+                const results = Object.values(groups).map(g => {
+                    const totalPerc = g.items.reduce((acc, curr) => acc + curr.percentage, 0);
+                    const avgPerc = g.items.length > 0 ? (totalPerc / g.items.length) : 0;
+                    
+                    const failedItems = g.items.filter(item => item.mark < (item.overall / 2));
+                    
+                    let causeText = "";
+                    if (failedItems.length > 0) {
+                        const mappedDetails = failedItems.map(fi => {
+                            const displayName = assessmentMap[fi.ori_assessmnet] || assessmentMap[fi.new__name] || fi.ori_assessmnet;
+                            return `${displayName} [${fi.mark}/${fi.overall}]`;
+                        }).join(",");
+                        causeText = `${g.PLO}: ${g.course}(${mappedDetails})`;
+                    } else {
+                        causeText = "-";
+                    }
+
+                    return {
+                        PLO: g.PLO,
+                        course: g.course,
+                        attainment: avgPerc,
+                        status: avgPerc >= 50 ? 'LULUS' : 'BELUM CAPAI',
+                        cause: causeText,
+                        failedItemsList: failedItems,
+                        hasCourses: true
+                    };
+                });
+
+                allKnownPlos.forEach(plo => {
+                    const hasPloInResults = results.some(r => r.PLO === plo);
+                    if (!hasPloInResults) {
+                        results.push({
+                            PLO: plo,
+                            course: '-',
+                            attainment: 0,
+                            status: 'TIADA KURSUS',
+                            cause: 'Tiada kursus melibatkan PLO ini pada sesi ini',
+                            failedItemsList: [],
+                            hasCourses: false
+                        });
+                    }
+                });
+
+                return results.sort((a, b) => a.PLO.localeCompare(b.PLO));
+            }, [filteredRawRows, rawRows, assessmentMap, allKnownPlos]);
+
+            const overallPloSummary = useMemo(() => {
+                if (filteredRawRows.length === 0) return [];
+
+                const ploGroups = {};
+                filteredRawRows.forEach(row => {
+                    if (!ploGroups[row.PLO]) {
+                        ploGroups[row.PLO] = {
+                            totalMark: 0,
+                            totalOverall: 0,
+                            items: []
+                        };
+                    }
+                    ploGroups[row.PLO].totalMark += row.mark;
+                    ploGroups[row.PLO].totalOverall += row.overall;
+                    ploGroups[row.PLO].items.push(row);
+                });
+
+                return allKnownPlos.map(plo => {
+                    const group = ploGroups[plo];
+                    if (!group || group.items.length === 0) {
+                        return {
+                            PLO: plo,
+                            attainment: 0,
+                            status: 'TIADA KURSUS',
+                            hasCourses: false
+                        };
+                    }
+
+                    const itemPercSum = group.items.reduce((sum, item) => sum + item.percentage, 0);
+                    const avgAttainment = itemPercSum / group.items.length;
+
+                    return {
+                        PLO: plo,
+                        attainment: avgAttainment,
+                        status: avgAttainment >= 50 ? 'LULUS' : 'BELUM CAPAI',
+                        hasCourses: true
+                    };
+                });
+            }, [filteredRawRows, allKnownPlos]);
+
+            const causeSummaryLines = useMemo(() => {
+                return coursePloData
+                    .filter(d => d.hasCourses && d.cause && d.cause !== '-')
+                    .map(d => d.cause);
+            }, [coursePloData]);
+
+            const handleTextPaste = () => {
+                if (!pastedText.trim()) return;
+                setIsProcessing(true);
+                setProcessingMsg("Sedang memproses teks SPMP...");
+                
+                setTimeout(() => {
+                    const parsed = parseSpmpReportText(pastedText);
+                    setRawRows(parsed);
+                    setIsProcessing(false);
+                    setActiveTab('report');
+                }, 300);
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                setIsProcessing(true);
+                setProcessingMsg(`Sedang membaca fail ${file.name}...`);
+
+                const fileName = file.name.toLowerCase();
+
+                if (fileName.endsWith('.txt')) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const text = event.target.result;
+                        setPastedText(text);
+                        const parsed = parseSpmpReportText(text);
+                        setRawRows(parsed);
+                        setIsProcessing(false);
+                        setActiveTab('report');
+                    };
+                    reader.readAsText(file);
+                } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const data = new Uint8Array(event.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            let combinedText = "";
+                            workbook.SheetNames.forEach(sheetName => {
+                                const sheet = workbook.Sheets[sheetName];
+                                combinedText += XLSX.utils.sheet_to_txt(sheet) + "\n";
+                            });
+                            setPastedText(combinedText);
+                            const parsed = parseSpmpReportText(combinedText);
+                            setRawRows(parsed);
+                        } catch (err) {
+                            alert("Ralat semasa membaca fail Excel.");
+                        } finally {
+                            setIsProcessing(false);
+                            setActiveTab('report');
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else if (fileName.endsWith('.docx')) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        mammoth.extractRawText({ arrayBuffer: event.target.result })
+                            .then(result => {
+                                const text = result.value;
+                                setPastedText(text);
+                                const parsed = parseSpmpReportText(text);
+                                setRawRows(parsed);
+                                setIsProcessing(false);
+                                setActiveTab('report');
+                            })
+                            .catch(err => {
+                                alert("Ralat membaca fail Word.");
+                                setIsProcessing(false);
+                            });
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else if (fileName.endsWith('.pdf')) {
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        try {
+                            const typedarray = new Uint8Array(event.target.result);
+                            const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                            let pdfText = "";
+                            for (let i = 1; i <= pdf.numPages; i++) {
+                                const page = await pdf.getPage(i);
+                                const content = await page.getTextContent();
+                                const strings = content.items.map(item => item.str);
+                                pdfText += strings.join(" ") + "\n";
+                            }
+                            setPastedText(pdfText);
+                            const parsed = parseSpmpReportText(pdfText);
+                            setRawRows(parsed);
+                        } catch (err) {
+                            alert("Ralat membaca fail PDF.");
+                        } finally {
+                            setIsProcessing(false);
+                            setActiveTab('report');
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    alert("Format fail tidak disokong. Sila muat naik fail TXT, XLSX, DOCX, atau PDF.");
+                    setIsProcessing(false);
+                }
+            };
+
+            const handleAddMapItem = () => {
+                if (!newMapKey.trim() || !newMapVal.trim()) return;
+                const cleanKey = newMapKey.trim().toUpperCase();
+                setAssessmentMap(prev => ({
+                    ...prev,
+                    [cleanKey]: newMapVal.trim().toUpperCase()
+                }));
+                setNewMapKey('');
+                setNewMapVal('');
+            };
+
+            const handleDeleteMapItem = (key) => {
+                setAssessmentMap(prev => {
+                    const copy = { ...prev };
+                    delete copy[key];
+                    return copy;
+                });
+            };
+
+            const copyCauseSummary = () => {
+                const text = causeSummaryLines.join("\n");
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            };
+
+            const exportToExcel = () => {
+                const cleanSessName = (sessionName || 'Laporan').replace(/[:\\/?*\[\]]/g, '-').slice(0, 31);
+                
+                const wb = XLSX.utils.book_new();
+
+                const overallData = overallPloSummary.map(item => ({
+                    'PLO': item.PLO,
+                    'Pencapaian Keseluruhan (%)': item.hasCourses ? item.attainment.toFixed(1) + '%' : '-',
+                    'Status': item.status
+                }));
+                const wsOverall = XLSX.utils.json_to_sheet(overallData);
+                XLSX.utils.book_append_sheet(wb, wsOverall, "Ringkasan Keseluruhan PLO");
+
+                const courseData = coursePloData.map(item => ({
+                    'PLO': item.PLO,
+                    'Kod Kursus': item.course,
+                    'Pencapaian (%)': item.hasCourses ? item.attainment.toFixed(1) + '%' : '-',
+                    'Status': item.status,
+                    'Punca Penyebab': item.cause
+                }));
+                const wsCourse = XLSX.utils.json_to_sheet(courseData);
+                XLSX.utils.book_append_sheet(wb, wsCourse, "Pecahan Mengikut Kursus");
+
+                const fileName = `Analisis_PLO_${cleanSessName}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+            };
+
+            return (
+                <div className="flex-1 flex flex-col min-h-screen">
+                    {/* Header */}
+                    <header className="bg-gradient-to-r from-red-950 via-rose-900 to-black text-white p-4 sm:p-6 shadow-lg">
+                        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-rose-800/80 rounded-lg border border-rose-700/50">
+                                        <Icon name="fileText" className="w-6 h-6 text-rose-200" />
+                                    </div>
+                                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+                                        Sistem Analisis Pencapaian PLO Untuk Penasihat Akademik
+                                    </h1>
+                                </div>
+                                <p className="text-xs sm:text-sm text-rose-200 mt-1 ml-11">
+                                    Jabatan Kejuruteraan Elektrik, PKS — Analisis Semakan Laporan Pencapaian Hasil Pembelajaran Program
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                                <div className="bg-black/40 backdrop-blur border border-rose-800/50 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-rose-300 uppercase tracking-wider">Sesi:</span>
+                                    <input 
+                                        type="text" 
+                                        value={sessionName}
+                                        onChange={(e) => setSessionName(e.target.value)}
+                                        placeholder="Auto/Sesi"
+                                        className="bg-transparent text-sm font-semibold text-white focus:outline-none w-28 text-right"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Container */}
+                    <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+                        {/* Workflow Stepper Bar */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <button
+                                onClick={() => setActiveTab('input')}
+                                className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                                    activeTab === 'input' 
+                                        ? 'bg-rose-900 text-white border-rose-900 shadow-md' 
+                                        : 'bg-white text-slate-700 border-slate-200 hover:border-rose-300'
+                                }`}
+                            >
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                                    activeTab === 'input' ? 'bg-white text-rose-950' : 'bg-rose-100 text-rose-900'
+                                }`}>1</div>
+                                <div>
+                                    <div className="font-semibold text-sm">Langkah 1: Input Data</div>
+                                    <div className={`text-xs ${activeTab === 'input' ? 'text-rose-200' : 'text-slate-500'}`}>Muat Naik / Tampal Teks</div>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('report')}
+                                className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                                    activeTab === 'report' 
+                                        ? 'bg-rose-900 text-white border-rose-900 shadow-md' 
+                                        : 'bg-white text-slate-700 border-slate-200 hover:border-rose-300'
+                                }`}
+                            >
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                                    activeTab === 'report' ? 'bg-white text-rose-950' : 'bg-rose-100 text-rose-900'
+                                }`}>2</div>
+                                <div className="flex-1">
+                                    <div className="font-semibold text-sm flex items-center justify-between">
+                                        Analisis PLO
+                                        {rawRows.length > 0 && <span className="bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full">Selesai</span>}
+                                    </div>
+                                    <div className={`text-xs ${activeTab === 'report' ? 'text-rose-200' : 'text-slate-500'}`}>Semak Pencapaian</div>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('settings')}
+                                className={`flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                                    activeTab === 'settings' 
+                                        ? 'bg-rose-900 text-white border-rose-900 shadow-md' 
+                                        : 'bg-white text-slate-700 border-slate-200 hover:border-rose-300'
+                                }`}
+                            >
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                                    activeTab === 'settings' ? 'bg-white text-rose-950' : 'bg-rose-100 text-rose-900'
+                                }`}>3</div>
+                                <div>
+                                    <div className="font-semibold text-sm">Langkah 3: Pemetaan Kod</div>
+                                    <div className={`text-xs ${activeTab === 'settings' ? 'text-rose-200' : 'text-slate-500'}`}>Tetapan Kod Pentaksiran</div>
+                                </div>
+                            </button>
+                        </div>
+
+                        {/* Processing Modal Overlay */}
+                        {isProcessing && (
+                            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                                <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-center space-y-4 border border-rose-100">
+                                    <div className="w-16 h-16 border-4 border-rose-200 border-t-rose-900 rounded-full animate-spin mx-auto"></div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-900">Memproses Data</h3>
+                                        <p className="text-sm text-slate-600 mt-1">{processingMsg || "Sila tunggu sebentar..."}</p>
+                                    </div>
+                                    <p className="text-xs text-rose-800 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                                        Jangan tutup atau muat semula tab ini.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* TAB 1: INPUT DATA */}
+                        {activeTab === 'input' && (
+                            <div className="space-y-6">
+                                <div className="bg-rose-50/80 border border-rose-200/60 rounded-xl p-4 flex items-start gap-3">
+                                    <Icon name="info" className="w-5 h-5 text-rose-900 shrink-0 mt-0.5" />
+                                    <div className="text-xs sm:text-sm text-rose-950">
+                                        <span className="font-semibold">Panduan Langkah 1:</span> Muat naik fail PDF, Excel, Word, atau Salin & Tampal teks laporan SPMP pelajar untuk memulakan analisis.
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {/* File Upload Box */}
+                                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <Icon name="upload" className="w-5 h-5 text-rose-900" />
+                                                <h2 className="text-base font-bold text-slate-900">Muat Naik Fail Laporan SPMP</h2>
+                                            </div>
+                                            <p className="text-xs text-slate-500 mb-6">
+                                                Sistem menyokong fail PDF, Excel (.xlsx), Word (.docx), atau Fail Teks (.txt).
+                                            </p>
+
+                                            <label className="border-2 border-dashed border-rose-200 hover:border-rose-800 bg-rose-50/30 hover:bg-rose-50/80 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all group min-h-[220px]">
+                                                <div className="p-4 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform mb-3 border border-rose-100">
+                                                    <Icon name="upload" className="w-8 h-8 text-rose-900" />
+                                                </div>
+                                                <span className="text-sm font-semibold text-slate-800 group-hover:text-rose-950">Pilih Fail atau Seret Ke Sini</span>
+                                                <span className="text-xs text-slate-400 mt-1">PDF, XLSX, DOCX, TXT sehingga 10MB</span>
+                                                <input 
+                                                    type="file" 
+                                                    accept=".pdf,.xlsx,.xls,.docx,.txt" 
+                                                    onChange={handleFileUpload} 
+                                                    className="hidden" 
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {/* Text Paste Box */}
+                                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <Icon name="fileText" className="w-5 h-5 text-rose-900" />
+                                                <h2 className="text-base font-bold text-slate-900">Tampal Teks Mentah SPMP</h2>
+                                            </div>
+                                            <p className="text-xs text-slate-500 mb-3">
+                                                Salin keseluruhan kandungan dari portal SPMP dan tampal di bawah:
+                                            </p>
+                                            <textarea
+                                                rows="8"
+                                                value={pastedText}
+                                                onChange={(e) => setPastedText(e.target.value)}
+                                                placeholder="Contoh:&#10;PROGRAMME : DIPLOMA KEJURUTERAAN ELEKTRONIK&#10;PLO001&#10;CLO0101C DBM10252 2:2025/2026 KUIZ1 7.0 10.0..."
+                                                className="w-full text-xs font-mono p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-800 focus:outline-none custom-scrollbar"
+                                            ></textarea>
+                                        </div>
+                                        <button
+                                            onClick={handleTextPaste}
+                                            disabled={!pastedText.trim()}
+                                            className="w-full mt-4 bg-rose-900 hover:bg-black text-white py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                                        >
+                                            Proses Teks & Jana Analisis
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* TAB 2: ANALISIS REPORT */}
+                        {activeTab === 'report' && (
+                            <div className="space-y-6">
+                                {/* Top Controls & Filters */}
+                                <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            onClick={() => setViewMode('ALL')}
+                                            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                                                viewMode === 'ALL'
+                                                    ? 'bg-rose-900 text-white shadow'
+                                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            Semua Paparan
+                                        </button>
+                                        <button
+                                            onClick={() => setViewMode('COURSE')}
+                                            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                                                viewMode === 'COURSE'
+                                                    ? 'bg-rose-900 text-white shadow'
+                                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            Pecahan Kursus
+                                        </button>
+                                        <button
+                                            onClick={() => setViewMode('CAUSE_SUMMARY')}
+                                            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                                                viewMode === 'CAUSE_SUMMARY'
+                                                    ? 'bg-rose-900 text-white shadow'
+                                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            Rumusan Punca
+                                        </button>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        {/* Session Filter Dropdown */}
+                                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                                            <Icon name="filter" className="w-4 h-4 text-rose-900" />
+                                            <span className="text-xs font-semibold text-slate-700">Penapis Sesi:</span>
+                                            <select
+                                                value={selectedSessionFilter}
+                                                onChange={(e) => setSelectedSessionFilter(e.target.value)}
+                                                className="bg-transparent text-xs font-bold text-rose-950 focus:outline-none"
+                                            >
+                                                {availableSessions.map((sess, idx) => (
+                                                    <option key={sess} value={sess}>
+                                                        {sess} {idx === 0 ? '(Terbaharu)' : ''}
+                                                    </option>
+                                                ))}
+                                                <option value="ALL">Semua Sesi (Kumulatif)</option>
+                                            </select>
+                                        </div>
+
+                                        <button
+                                            onClick={exportToExcel}
+                                            disabled={coursePloData.length === 0}
+                                            className="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-sm disabled:opacity-50"
+                                        >
+                                            <Icon name="download" className="w-4 h-4" />
+                                            Eksport Excel
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* SECTION: OVERALL PLO SUMMARY CARDS */}
+                                {(viewMode === 'ALL') && (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-rose-900"></span>
+                                                Ringkasan Keseluruhan Pencapaian PLO ({selectedSessionFilter === 'ALL' ? 'Kumulatif Semua Sesi' : `Sesi: ${selectedSessionFilter}`})
+                                            </h3>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                            {overallPloSummary.map((item) => (
+                                                <div 
+                                                    key={item.PLO} 
+                                                    className={`p-3.5 rounded-2xl border transition-all ${
+                                                        !item.hasCourses
+                                                            ? 'bg-slate-50 border-slate-200 opacity-70'
+                                                            : item.attainment >= 50 
+                                                                ? 'bg-emerald-50/60 border-emerald-200' 
+                                                                : 'bg-rose-50/60 border-rose-200'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-1">
+                                                        <span>{item.PLO}</span>
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-md font-extrabold ${
+                                                            !item.hasCourses
+                                                                ? 'bg-slate-200 text-slate-600'
+                                                                : item.attainment >= 50 
+                                                                    ? 'bg-emerald-200 text-emerald-800' 
+                                                                    : 'bg-rose-200 text-rose-900'
+                                                        }`}>
+                                                            {item.status}
+                                                        </span>
+                                                    </div>
+                                                    <div className={`text-xl font-extrabold mt-1 ${
+                                                        !item.hasCourses 
+                                                            ? 'text-slate-400' 
+                                                            : item.attainment >= 50 
+                                                                ? 'text-emerald-700' 
+                                                                : 'text-rose-900'
+                                                    }`}>
+                                                        {item.hasCourses ? `${item.attainment.toFixed(0)}%` : '-'}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* SECTION: RUMUSAN PUNCA (SUMMARY VIEW) */}
+                                {(viewMode === 'CAUSE_SUMMARY') && (
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="p-4 sm:p-5 bg-slate-900 text-white flex items-center justify-between">
+                                            <div>
+                                                <h3 className="font-bold text-sm sm:text-base">Rumusan Punca Pencapaian Belum Capai (&lt;50%)</h3>
+                                                <p className="text-xs text-slate-300 mt-0.5">Senarai ringkas mengikut format laporan rasmi</p>
+                                            </div>
+                                            <button
+                                                onClick={copyCauseSummary}
+                                                disabled={causeSummaryLines.length === 0}
+                                                className="bg-rose-800 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all disabled:opacity-50"
+                                            >
+                                                <Icon name="copy" className="w-4 h-4" />
+                                                {copied ? 'Tersalin!' : 'Salin Teks'}
+                                            </button>
+                                        </div>
+                                        <div className="p-4 sm:p-6 bg-slate-950 font-mono text-xs text-rose-200 space-y-2 custom-scrollbar overflow-x-auto min-h-[180px]">
+                                            {causeSummaryLines.length > 0 ? (
+                                                causeSummaryLines.map((line, idx) => (
+                                                    <div key={idx} className="leading-relaxed border-b border-slate-800/80 pb-1.5 last:border-0">
+                                                        {line}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-slate-500 italic py-8 text-center font-sans">
+                                                    Tiada komponen pentaksiran yang berada di bawah markah 50% untuk sesi ini.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* SECTION: COURSE BREAKDOWN TABLE */}
+                                {(viewMode === 'ALL' || viewMode === 'COURSE') && (
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="p-4 sm:p-5 bg-slate-900 text-white flex items-center justify-between">
+                                            <h3 className="font-bold text-sm sm:text-base">Pecahan Pencapaian Mengikut Kursus</h3>
+                                            <span className="text-xs bg-rose-900 px-3 py-1 rounded-full text-rose-100 font-medium">
+                                                {coursePloData.length} Rekod PLO Evaluasi
+                                            </span>
+                                        </div>
+
+                                        <div className="overflow-x-auto custom-scrollbar">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="bg-slate-100 border-b border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                                        <th className="p-3.5 w-24">PLO</th>
+                                                        <th className="p-3.5 w-32">Kod Kursus</th>
+                                                        <th className="p-3.5 w-32 text-center">Pencapaian (%)</th>
+                                                        <th className="p-3.5 w-32 text-center">Status</th>
+                                                        <th className="p-3.5">Punca Penyebab (&lt;50% Markah)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-200 text-xs text-slate-800 font-medium">
+                                                    {coursePloData.length > 0 ? (
+                                                        coursePloData.map((row, idx) => (
+                                                            <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                                                                <td className="p-3.5 font-bold text-rose-950">{row.PLO}</td>
+                                                                <td className="p-3.5 font-semibold text-slate-700">{row.course}</td>
+                                                                <td className="p-3.5 text-center font-extrabold text-sm">
+                                                                    {row.hasCourses ? `${row.attainment.toFixed(1)}%` : '-'}
+                                                                </td>
+                                                                <td className="p-3.5 text-center">
+                                                                    <span className={`inline-block px-3 py-1 rounded-full font-bold text-[10px] ${
+                                                                        !row.hasCourses
+                                                                            ? 'bg-slate-100 text-slate-600'
+                                                                            : row.status === 'LULUS'
+                                                                                ? 'bg-emerald-100 text-emerald-800'
+                                                                                : 'bg-rose-100 text-rose-900'
+                                                                    }`}>
+                                                                        {row.status}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3.5 font-mono text-slate-700 leading-relaxed text-[11px]">
+                                                                    {row.cause}
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    ) : (
+                                                        <tr>
+                                                            <td colSpan="5" className="p-8 text-center text-slate-400">
+                                                                Sila muat naik fail atau tampal teks laporan SPMP di Langkah 1.
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* TAB 3: PEMETAAN KOD SETTINGS */}
+                        {activeTab === 'settings' && (
+                            <div className="space-y-6">
+                                <div className="bg-rose-50/80 border border-rose-200/60 rounded-xl p-4 flex items-start gap-3">
+                                    <Icon name="info" className="w-5 h-5 text-rose-900 shrink-0 mt-0.5" />
+                                    <div className="text-xs sm:text-sm text-rose-950">
+                                        <span className="font-semibold">Panduan Langkah 3:</span> Daftarkan kod pentaksiran baharu atau ubah nama pentaksiran mengikut penetapan kurikulum jabatan.
+                                    </div>
+                                </div>
+
+                                {/* Form Add Code */}
+                                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                                    <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                        <Icon name="plus" className="w-4 h-4 text-rose-900" />
+                                        Tambah Kod Pentaksiran Baharu
+                                    </h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-xs font-semibold text-slate-600 mb-1">Kod Singkatan SPMP (cth: TRUC1, INREP, LAB)</label>
+                                            <input 
+                                                type="text" 
+                                                value={newMapKey}
+                                                onChange={(e) => setNewMapKey(e.target.value)}
+                                                placeholder="Contoh: TRUC1"
+                                                className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-800 focus:outline-none uppercase font-semibold"
+                                            />
+                                        </div>
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-xs font-semibold text-slate-600 mb-1">Nama Penuh Laporan (cth: STRUCTURE 1 PA)</label>
+                                            <input 
+                                                type="text" 
+                                                value={newMapVal}
+                                                onChange={(e) => setNewMapVal(e.target.value)}
+                                                placeholder="Contoh: STRUCTURE 1 PA"
+                                                className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-800 focus:outline-none font-semibold"
+                                            />
+                                        </div>
+                                        <div className="flex items-end">
+                                            <button
+                                                onClick={handleAddMapItem}
+                                                disabled={!newMapKey.trim() || !newMapVal.trim()}
+                                                className="w-full bg-rose-900 hover:bg-black text-white p-2.5 rounded-xl font-semibold text-xs transition-all disabled:opacity-50"
+                                            >
+                                                Tambah Kod
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Code Mapping List */}
+                                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+                                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                        <Icon name="settings" className="w-4 h-4 text-rose-900" />
+                                        Senarai Pemetaan Kod Pentaksiran Sedia Ada
+                                    </h3>
+                                    
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                        {Object.entries(assessmentMap).map(([key, val]) => (
+                                            <div key={key} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2">
+                                                <div className="overflow-hidden">
+                                                    <div className="text-xs font-extrabold text-rose-950 tracking-wider">{key}</div>
+                                                    <input 
+                                                        type="text"
+                                                        value={val}
+                                                        onChange={(e) => {
+                                                            const value = e.target.value;
+                                                            setAssessmentMap(prev => ({ ...prev, [key]: value }));
+                                                        }}
+                                                        className="text-xs text-slate-700 bg-transparent border-b border-slate-300 focus:border-rose-800 focus:outline-none w-full font-medium"
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={() => handleDeleteMapItem(key)}
+                                                    className="p-1.5 text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
+                                                    title="Padam Kod"
+                                                >
+                                                    <Icon name="trash" className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Footer */}
+                    <footer className="bg-neutral-950 border-t border-neutral-900 py-4 px-6 text-center text-xs text-neutral-400 mt-auto">
+                        <p>© {new Date().getFullYear()} Sistem Analisis Pencapaian PLO Untuk Penasihat Akademik — Jabatan Kejuruteraan Elektrik, PKS</p>
+                    </footer>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
