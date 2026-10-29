@@ -49,7 +49,8 @@
                 alert: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />,
                 filter: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />,
                 copy: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />,
-                info: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                info: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
+                radar: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
             };
             return (
                 <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -89,6 +90,301 @@
             'PLO007', 'PLO008', 'PLO009', 'PLO010', 'PLO011'
         ];
 
+        // Component Spider Map / Radar Chart
+        const SpiderChart = ({ summaryData, sessionFilterName }) => {
+            if (!summaryData || summaryData.length === 0) return null;
+
+            const N = summaryData.length;
+            const cx = 320;
+            const cy = 270;
+            const radius = 170;
+            const angleStep = (2 * Math.PI) / N;
+
+            // Concentric grid levels
+            const levels = [0.2, 0.4, 0.6, 0.8, 1.0];
+
+            // Helper to get coordinates on polygon
+            const getCoord = (index, factor) => {
+                const angle = -Math.PI / 2 + index * angleStep;
+                return {
+                    x: cx + radius * factor * Math.cos(angle),
+                    y: cy + radius * factor * Math.sin(angle)
+                };
+            };
+
+            // Grid polygon points string
+            const getPolygonPoints = (factor) => {
+                return summaryData.map((_, i) => {
+                    const { x, y } = getCoord(i, factor);
+                    return `${x},${y}`;
+                }).join(' ');
+            };
+
+            // Student achievement polygon
+            const studentPolygonPoints = summaryData.map((item, i) => {
+                const val = item.hasCourses ? Math.min(100, Math.max(0, item.attainment)) : 0;
+                const factor = val / 100;
+                const { x, y } = getCoord(i, factor);
+                return `${x},${y}`;
+            }).join(' ');
+
+            // KPI 50% target polygon
+            const kpi50PolygonPoints = getPolygonPoints(0.5);
+
+            // Statistics calculation
+            const coursesTaken = summaryData.filter(d => d.hasCourses);
+            const passedCount = coursesTaken.filter(d => d.attainment >= 50).length;
+            const failedCount = coursesTaken.filter(d => d.attainment < 50).length;
+            const noCourseCount = summaryData.filter(d => !d.hasCourses).length;
+            const avgScore = coursesTaken.length > 0 
+                ? (coursesTaken.reduce((sum, d) => sum + d.attainment, 0) / coursesTaken.length).toFixed(1) 
+                : 0;
+
+            return (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                        <div>
+                            <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-rose-900"></span>
+                                Peta Radar / Spider Map Pencapaian PLO
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                Visualisasi pencapaian setiap PLO berbanding sasaran minimum KPI (50%) — {sessionFilterName === 'ALL' ? 'Semua Sesi (Kumulatif)' : `Sesi: ${sessionFilterName}`}
+                            </p>
+                        </div>
+                        {/* Summary Badges */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                Lulus: {passedCount} PLO
+                            </span>
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-rose-50 text-rose-900 border border-rose-200">
+                                Belum Capai: {failedCount} PLO
+                            </span>
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200">
+                                Tiada Kursus: {noCourseCount} PLO
+                            </span>
+                            <span className="text-xs font-bold px-3 py-1 rounded-lg bg-rose-900 text-white shadow-sm">
+                                Purata: {avgScore}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                        {/* Spider Map Chart (SVG) */}
+                        <div className="lg:col-span-8 flex justify-center overflow-x-auto">
+                            <svg viewBox="0 0 640 540" className="w-full max-w-[560px] h-auto select-none overflow-visible">
+                                <defs>
+                                    <radialGradient id="spiderGradient" cx="50%" cy="50%" r="50%">
+                                        <stop offset="0%" stopColor="#be123c" stopOpacity="0.45" />
+                                        <stop offset="100%" stopColor="#881337" stopOpacity="0.15" />
+                                    </radialGradient>
+                                </defs>
+
+                                {/* Background Grid Rings */}
+                                {levels.map((lvl) => (
+                                    <polygon
+                                        key={lvl}
+                                        points={getPolygonPoints(lvl)}
+                                        fill="none"
+                                        stroke="#e2e8f0"
+                                        strokeWidth="1.2"
+                                    />
+                                ))}
+
+                                {/* KPI 50% Threshold Polygon */}
+                                <polygon
+                                    points={kpi50PolygonPoints}
+                                    fill="none"
+                                    stroke="#e11d48"
+                                    strokeWidth="1.8"
+                                    strokeDasharray="4 4"
+                                />
+
+                                {/* Axis lines from center to outer ring */}
+                                {summaryData.map((_, i) => {
+                                    const { x, y } = getCoord(i, 1.0);
+                                    return (
+                                        <line
+                                            key={`axis-${i}`}
+                                            x1={cx}
+                                            y1={cy}
+                                            x2={x}
+                                            y2={y}
+                                            stroke="#cbd5e1"
+                                            strokeWidth="1"
+                                            strokeDasharray="2 2"
+                                        />
+                                    );
+                                })}
+
+                                {/* Grid Level Labels (along 12 o'clock vertical axis) */}
+                                {levels.map((lvl) => (
+                                    <text
+                                        key={`label-${lvl}`}
+                                        x={cx + 6}
+                                        y={cy - radius * lvl + 3}
+                                        fontSize="9"
+                                        fill="#64748b"
+                                        fontWeight="600"
+                                    >
+                                        {Math.round(lvl * 100)}%
+                                    </text>
+                                ))}
+                                <text
+                                    x={cx - 8}
+                                    y={cy - radius * 0.5 - 2}
+                                    fontSize="9"
+                                    fill="#e11d48"
+                                    fontWeight="700"
+                                    textAnchor="end"
+                                >
+                                    Sasaran 50%
+                                </text>
+
+                                {/* Student Achievement Area (Polygon) */}
+                                <polygon
+                                    points={studentPolygonPoints}
+                                    fill="url(#spiderGradient)"
+                                    stroke="#881337"
+                                    strokeWidth="2.5"
+                                    strokeLinejoin="round"
+                                />
+
+                                {/* Student Points & Vertex Dots */}
+                                {summaryData.map((item, i) => {
+                                    const val = item.hasCourses ? Math.min(100, Math.max(0, item.attainment)) : 0;
+                                    const factor = val / 100;
+                                    const { x, y } = getCoord(i, factor);
+                                    const dotColor = !item.hasCourses 
+                                        ? '#94a3b8' 
+                                        : item.attainment >= 50 
+                                            ? '#059669' 
+                                            : '#e11d48';
+
+                                    return (
+                                        <g key={`point-${i}`}>
+                                            <circle
+                                                cx={x}
+                                                cy={y}
+                                                r="5.5"
+                                                fill={dotColor}
+                                                stroke="#ffffff"
+                                                strokeWidth="2"
+                                            />
+                                        </g>
+                                    );
+                                })}
+
+                                {/* Outer Labels */}
+                                {summaryData.map((item, i) => {
+                                    const angle = -Math.PI / 2 + i * angleStep;
+                                    const labelDist = radius + 36;
+                                    const lx = cx + labelDist * Math.cos(angle);
+                                    const ly = cy + labelDist * Math.sin(angle);
+
+                                    const cosA = Math.cos(angle);
+                                    let anchor = "middle";
+                                    if (cosA > 0.25) anchor = "start";
+                                    else if (cosA < -0.25) anchor = "end";
+
+                                    return (
+                                        <text
+                                            key={`outer-lbl-${i}`}
+                                            x={lx}
+                                            y={ly}
+                                            textAnchor={anchor}
+                                            dominantBaseline="middle"
+                                        >
+                                            <tspan
+                                                x={lx}
+                                                dy="-0.3em"
+                                                fontSize="11.5"
+                                                fontWeight="800"
+                                                fill="#0f172a"
+                                            >
+                                                {item.PLO}
+                                            </tspan>
+                                            <tspan
+                                                x={lx}
+                                                dy="1.3em"
+                                                fontSize="10.5"
+                                                fontWeight="700"
+                                                fill={
+                                                    !item.hasCourses 
+                                                        ? '#94a3b8' 
+                                                        : item.attainment >= 50 
+                                                            ? '#059669' 
+                                                            : '#be123c'
+                                                }
+                                            >
+                                                {item.hasCourses ? `${item.attainment.toFixed(0)}%` : 'Tiada'}
+                                            </tspan>
+                                        </text>
+                                    );
+                                })}
+                            </svg>
+                        </div>
+
+                        {/* Legend & Analysis Breakdown */}
+                        <div className="lg:col-span-4 space-y-4">
+                            {/* Legend Card */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Petunjuk Graf</h4>
+                                <div className="space-y-2 text-xs">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="w-5 h-2.5 rounded bg-rose-900 border border-rose-950 inline-block"></span>
+                                        <span className="text-slate-700 font-medium">Pencapaian Pelajar (Kawasan Maroon)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="w-5 h-0.5 border-t-2 border-dashed border-red-600 inline-block"></span>
+                                        <span className="text-slate-700 font-medium">Garis Sasaran KPI (50%)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="w-3 h-3 rounded-full bg-emerald-600 inline-block"></span>
+                                        <span className="text-slate-700 font-medium">Titik LULUS (≥ 50%)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="w-3 h-3 rounded-full bg-rose-600 inline-block"></span>
+                                        <span className="text-slate-700 font-medium">Titik BELUM CAPAI (&lt; 50%)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="w-3 h-3 rounded-full bg-slate-400 inline-block"></span>
+                                        <span className="text-slate-700 font-medium">Tiada Kursus (Sesi Ini)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Status Quick List */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2.5">Status Pencapaian Mengikut PLO</h4>
+                                <div className="max-h-56 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                                    {summaryData.map(item => (
+                                        <div key={item.PLO} className="flex items-center justify-between text-xs py-1 border-b border-slate-200/60 last:border-0">
+                                            <span className="font-bold text-slate-700">{item.PLO}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-extrabold text-slate-900">
+                                                    {item.hasCourses ? `${item.attainment.toFixed(1)}%` : '-'}
+                                                </span>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded font-extrabold ${
+                                                    !item.hasCourses
+                                                        ? 'bg-slate-200 text-slate-600'
+                                                        : item.attainment >= 50
+                                                            ? 'bg-emerald-100 text-emerald-800'
+                                                            : 'bg-rose-100 text-rose-900'
+                                                }`}>
+                                                    {item.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         function App() {
             const [activeTab, setActiveTab] = useState('input');
             const [rawRows, setRawRows] = useState([]);
@@ -100,7 +396,7 @@
             const [newMapVal, setNewMapVal] = useState('');
             const [isProcessing, setIsProcessing] = useState(false);
             const [processingMsg, setProcessingMsg] = useState('');
-            const [viewMode, setViewMode] = useState('ALL'); // ALL, COURSE, CAUSE_SUMMARY
+            const [viewMode, setViewMode] = useState('SPIDER'); // SPIDER, COURSE, CAUSE_SUMMARY
             const [copied, setCopied] = useState(false);
 
             const parseSpmpReportText = (text) => {
@@ -577,8 +873,8 @@
                                     activeTab === 'settings' ? 'bg-white text-rose-950' : 'bg-rose-100 text-rose-900'
                                 }`}>3</div>
                                 <div>
-                                    <div className="font-semibold text-sm">Langkah 3: Pemetaan Kod</div>
-                                    <div className={`text-xs ${activeTab === 'settings' ? 'text-rose-200' : 'text-slate-500'}`}>Tetapan Kod Pentaksiran</div>
+                                    <div className="font-semibold text-sm">SEMAK/TETAPAN</div>
+                                    <div className={`text-xs ${activeTab === 'settings' ? 'text-rose-200' : 'text-slate-500'}`}>(Kod Pentaksiran)</div>
                                 </div>
                             </button>
                         </div>
@@ -674,14 +970,15 @@
                                 <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <button
-                                            onClick={() => setViewMode('ALL')}
-                                            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-                                                viewMode === 'ALL'
+                                            onClick={() => setViewMode('SPIDER')}
+                                            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                                                viewMode === 'SPIDER'
                                                     ? 'bg-rose-900 text-white shadow'
                                                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                             }`}
                                         >
-                                            Semua Paparan
+                                            <Icon name="radar" className="w-3.5 h-3.5" />
+                                            Ringkasan Pencapaian
                                         </button>
                                         <button
                                             onClick={() => setViewMode('COURSE')}
@@ -736,7 +1033,7 @@
                                 </div>
 
                                 {/* SECTION: OVERALL PLO SUMMARY CARDS */}
-                                {(viewMode === 'ALL') && (
+                                {(viewMode === 'SPIDER') && (
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -784,6 +1081,14 @@
                                     </div>
                                 )}
 
+                                {/* SECTION: SPIDER MAP (RADAR CHART) */}
+                                {(viewMode === 'SPIDER') && (
+                                    <SpiderChart 
+                                        summaryData={overallPloSummary} 
+                                        sessionFilterName={selectedSessionFilter} 
+                                    />
+                                )}
+
                                 {/* SECTION: RUMUSAN PUNCA (SUMMARY VIEW) */}
                                 {(viewMode === 'CAUSE_SUMMARY') && (
                                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -818,7 +1123,7 @@
                                 )}
 
                                 {/* SECTION: COURSE BREAKDOWN TABLE */}
-                                {(viewMode === 'ALL' || viewMode === 'COURSE') && (
+                                {(viewMode === 'COURSE') && (
                                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                         <div className="p-4 sm:p-5 bg-slate-900 text-white flex items-center justify-between">
                                             <h3 className="font-bold text-sm sm:text-base">Pecahan Pencapaian Mengikut Kursus</h3>
